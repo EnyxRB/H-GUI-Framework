@@ -7,12 +7,8 @@
   
 #[Structure --
     #Panels
-    -Similar to Derma, all items must be attached to a panel
-    -Panels must be created with a set size and height
-    -The panel will be the parent to all items attached to it.
-    -The parent of a panel can be a panel or a base, the base 
-    panel can have a physical entity parent or noentity(), 
-    but can be moved around and rotated to the users desire.
+    -Essentially pages in HTML.
+    -All content on the panel will be loaded when the panel is initialised.
     
     #Standard Items
     -Object (Can be any model and attached to dynamic buttons, or used for aesthetic purposes)

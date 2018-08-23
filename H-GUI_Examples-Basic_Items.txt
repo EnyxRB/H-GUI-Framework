@@ -1,0 +1,94 @@
+@name H-GUI Examples-Basic Items
+@inputs 
+@outputs 
+@persist 
+@trigger 
+#include "H-GUI_Framework"
+
+#[
+THIS BASIC EXAMPLE SHOWS YOU THE CURRENT CAPABILITIES OF H-GUI.
+
+It includes the following items:
+    -object
+    -text
+    -button
+    -slider
+    -panel loader    
+]#
+
+if (first()){
+    #TESTING CODE   
+    #Creating the Base:
+    hgui_base(entity(),entity():toWorld(vec(0,0,6)),vec2(80,45),vec(50,50,50),"")
+    
+    #Panel Creation:
+    hgui_panel("main")
+    
+    #Item Creation:
+    #Toggle Buttons
+    hgui_text("main",noentity(),"Toggle",vec2(5,hgui_Height()-4),2,1,vec(255),"")
+    hgui_text("main",noentity(),"b1",vec2(5,hgui_Height()-8),1,1,vec(255),"")
+    hgui_text("main",noentity(),"b2",vec2(15,hgui_Height()-8),1,1,vec(255),"")
+    hgui_text("main",noentity(),"b3",vec2(25,hgui_Height()-8),1,1,vec(255),"")
+    hgui_text("main",noentity(),"b4",vec2(35,hgui_Height()-8),1,1,vec(255),"")
+    hgui_button("main","button1",noentity(),"",vec2(5,hgui_Height()-10),vec(5,5,1),1,ang(0),vec(100),"",1,vec(255,0,0))
+    hgui_button("main","button2",noentity(),"",vec2(15,hgui_Height()-10),vec(5,5,1),1,ang(0),vec(100),"",1,vec(0,255,0))
+    hgui_button("main","button3",noentity(),"",vec2(25,hgui_Height()-10),vec(5,5,1),1,ang(0),vec(100),"",1,vec(0,0,255))
+    hgui_button("main","button4",noentity(),"",vec2(35,hgui_Height()-10),vec(5,5,1),1,ang(0),vec(100),"",1,vec(0,255,255))
+    
+    #Non-Toggle Buttons
+    hgui_text("main",noentity(),"Non-Toggle",vec2(5,hgui_Height()-18),2,1,vec(255),"")
+    hgui_text("main",noentity(),"b5",vec2(5,hgui_Height()-22),1,1,vec(255),"")
+    hgui_text("main",noentity(),"b6",vec2(15,hgui_Height()-22),1,1,vec(255),"")
+    hgui_text("main",noentity(),"b7",vec2(25,hgui_Height()-22),1,1,vec(255),"")
+    hgui_text("main",noentity(),"b8",vec2(35,hgui_Height()-22),1,1,vec(255),"")    
+    hgui_button("main","button5",noentity(),"",vec2(5,hgui_Height()-24),vec(5,5,1),1,ang(0),vec(100),"",0,vec(255,0,0))
+    hgui_button("main","button6",noentity(),"",vec2(15,hgui_Height()-24),vec(5,5,1),1,ang(0),vec(100),"",0,vec(0,255,0))
+    hgui_button("main","button7",noentity(),"",vec2(25,hgui_Height()-24),vec(5,5,1),1,ang(0),vec(100),"",0,vec(0,0,255))
+    hgui_button("main","button8",noentity(),"",vec2(35,hgui_Height()-24),vec(5,5,1),1,ang(0),vec(100),"",0,vec(0,255,255))
+    
+    #Slider
+    hgui_text("main",noentity(),"Slider",vec2(45,hgui_Height()-4),2,1,vec(255),"")
+    hgui_text("main",noentity(),"R",vec2(45,hgui_Height()-10.5),1.5,1,vec(255),"")
+    RSlider = hgui_slider("main","rslider",noentity(),vec2(48,hgui_Height()-10),vec(27,2.5,1),1,0,vec(100),vec(200,0,0),"",vec(225,255,0),0,255)
+    hgui_text("main",noentity(),"G",vec2(45,hgui_Height()-15.5),1.5,1,vec(255),"")
+    GSlider = hgui_slider("main","gslider",noentity(),vec2(48,hgui_Height()-15),vec(27,2.5,1),1,0,vec(100),vec(200,0,0),"",vec(225,255,0),0,255)
+    hgui_text("main",noentity(),"B",vec2(45,hgui_Height()-20.5),1.5,1,vec(255),"")
+    BSlider = hgui_slider("main","bslider",noentity(),vec2(48,hgui_Height()-20),vec(27,2.5,1),1,0,vec(100),vec(200,0,0),"",vec(225,255,0),0,255)
+    ColorObj = hgui_object("main",noentity(),"",vec2(45,hgui_Height()-24),vec(30,5,1),1,ang(0),vec(0,0,1),"")
+
+    #Panel Switchers
+    hgui_panelLoader("main","main",noentity(),"",vec2(5,hgui_Height()-35),vec(10,5,1),1,ang(0),vec(100),"",vec(255,255,0))
+    hgui_text("main",noentity(),"m1",vec2(5,hgui_Height()-37),2.5,2,vec(255),"")
+    
+    hgui_panelLoader("main","main2",noentity(),"",vec2(25,hgui_Height()-35),vec(10,5,1),1,ang(0),vec(100),"",vec(255,255,0))
+    hgui_text("main",noentity(),"m2",vec2(25,hgui_Height()-37),2.5,2,vec(255),"")       
+    
+    #Panel Creation:
+    hgui_panel("main2")
+    
+    #Item Creation:
+    hgui_button("main2","button1",noentity(),"",vec2(5,hgui_Height()-5),vec(5,5,1),1,ang(0),vec(100),"",1,vec(255,0,0))
+    hgui_button("main2","button2",noentity(),"",vec2(15,hgui_Height()-5),vec(5,5,1),1,ang(0),vec(100),"",1,vec(0,255,0)) 
+    
+    #Panel Switchers
+    hgui_panelLoader("main2","main",noentity(),"",vec2(5,hgui_Height()-35),vec(10,5,1),1,ang(0),vec(100),"",vec(255,255,0))
+    hgui_text("main2",noentity(),"m1",vec2(5,hgui_Height()-37),2.5,2,vec(255),"")
+    
+    hgui_panelLoader("main2","main2",noentity(),"",vec2(25,hgui_Height()-35),vec(10,5,1),1,ang(0),vec(100),"",vec(255,255,0))
+    hgui_text("main2",noentity(),"m2",vec2(25,hgui_Height()-37),2.5,2,vec(255),"")     
+        
+    #Chosing a panel to render
+    hgui_renderPanel("main") 
+    
+    #Processing Elements
+    processItems()    
+}
+
+if (clk("main")){
+        local R = RSlider:getSliderValue()
+        local G = GSlider:getSliderValue()
+        local B = BSlider:getSliderValue()
+
+        ColorObj:hgui_setColor(vec(R,G,B))        
+}

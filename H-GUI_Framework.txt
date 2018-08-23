@@ -1,0 +1,836 @@
+@name H-GUI Framework
+@persist [Indices Models Parents Scales Positions Angles Colors Materials]:table SpawnInterval Index #PROCEDURAL SPAWNING VARS
+@persist [GUI ToggleVals FuncCalls]:table [Version CurPanel NextPanel UseButton]:string BaseScale:vector2 ItemCount Spawning 
+@persist Deleting DelIndex [ShootPos Eye ButColour]:vector ButID ButTableID [PressedIDs PressedColors Punctuation]:table
+@persist MaxIndex ProcCount ProcIndex StartingPanel:string [DynamicIDs HolosSaved HoloIndex SliderIDs]:table GenIndex AlphaIndex
+@persist ActiveSlider ActiveSliderTbl RSlider GSlider BSlider ColorObj
+  
+#[Structure --
+    #Panels
+    -Similar to Derma, all items must be attached to a panel
+    -Panels must be created with a set size and height
+    -The panel will be the parent to all items attached to it.
+    -The parent of a panel can be a panel or a base, the base 
+    panel can have a physical entity parent or noentity(), 
+    but can be moved around and rotated to the users desire.
+    
+    #Standard Items
+    -Object (Can be any model and attached to dynamic buttons, or used for aesthetic purposes)
+    -Text (Creates holo text from a given string)
+    
+    #Dynamic Items (Dynamic items will be kept seperately, for holoIntersect function)
+    -Button
+    -PanelLoader (Button that will wipe current panel and load the selected one)
+    -Slider
+    -Scroller (will have next and back buttons to display different 'pages', containing items.)   
+    
+    #Item position refrencing:
+    -All positions will be stored as local values, then set at parents world coords. (Except the base)
+    -This will be refrenced for animations and dynamic items, such as: sliders/buttons
+    -All positioning will be refrenced inside 2D space, from the bottom left of the GUI Base
+    
+    #Panel table layout
+    GUI = table()
+        -Each table inside GUI will be refrenced by panel name e.g.:
+        GUI["page1",table] = table()
+            -Inside the panel tables will hold the following tables:
+                GUI["page1",table]["indices",table] = Indicies of Holograms
+                GUI["page1",table]["item_types",table] = H-GUI Item type of Holograms
+                GUI["page1",table]["parents",table] = Parents of Holograms
+                GUI["page1",table]["models",table] = Models of Holograms
+                GUI["page1",table]["scales",table] = Vec2 Scales of Holograms
+                GUI["page1",table]["positions",table] = Vec2 Local Positions of Holograms
+                GUI["page1",table]["z_indices",table] = zIndicies of Holograms (e.g. 0,1,2,3...10)
+                GUI["page1",table]["angles",table] = Local Angles of Holograms
+                GUI["page1",table]["colours",table] = Colours of Holograms
+                GUI["page1",table]["materials",table] = Materials of Holograms
+                GUI["page1",table]["dynamic_indices",table] = List of all dynamic items
+
+    #HoloID Referencing
+    Base HoloIndex = 1
+    
+    #ToDo
+    -Merge together index and create timers
+    -Stationary pageLoaders option, doesn't update that item, stays on page while rest loads
+    -Make button unclick colouring more efficient
+]#
+
+if (first()){
+    runOnKeys(owner(),1)
+    
+    Version = "Alpha 1.1"
+    UseButton = "e"
+    
+    Punctuation = table(
+        "." = "prd", "," = "com", ":" = "colon", ";" = "scolon", "?" = "qmark",
+        "!" = "xmark", "<" = "lessthan", ">" = "greaterthan", "_" = "underscore",
+        "[" = "lbracket", "]" = "rbracket", "|" = "bar", "-" = "min",
+        "&" = "and", "#" = "pdsign", "(" = "lpar", ")" = "rpar", "/" = "div",
+        "\"" = "quote", "'" = "apost", "+" = "plu", "*" = "ast"
+    )    
+        
+    #DEBUG FUNCS
+    function void debug(Sector:string,Info:string,Value:string,Conclusion:string){
+        printColor(vec(255,93,0),"[H-GUI "+Sector+"]",vec(255,242,0),"["+Version+"] ",vec(255),Info+" ",vec(0,161,255),Value,vec(255)," "+Conclusion)            
+    }
+    
+    #HOLO SPAWN FUNCS
+    function void indexHolo(Index:number,Model:string,Parent:entity,Position:vector,Scale:vector,Angle:angle,Color:vector,Material:string){
+        Indices:pushNumber(Index)
+        if (Model == ""){
+            Models:pushString("cube")    
+        }
+        else{
+            Models:pushString(Model)
+        }
+        Parents:pushEntity(Parent)
+        Scales:pushVector(Scale)        
+        Positions:pushVector(Position)
+        Angles:pushAngle(Angle)
+        Colors:pushVector(Color)
+        Materials:pushString(Material)            
+    }
+         
+    #REFRENCING FUNCS
+    function vector get_LBasePos(X:number,Y:number,ZIndex:number){
+        local Pos = holoEntity(1):toWorld(vec((-BaseScale:x()/2)+X,(-BaseScale:y()/2)+Y,ZIndex*0.2))      
+        return Pos 
+    }
+    
+    function number hgui_Width(){
+        return BaseScale:x()    
+    }
+    
+    function number hgui_Height(){
+        return BaseScale:y()    
+    }
+     
+    #CREATION FUNCS
+    #Base:
+    function void hgui_base(Parent:entity,WorldPosition:vector,Size:vector2,Colour:vector,Material:string){
+        if (holoCanCreate()){
+            holoCreate(1)
+            holoCreate(1)
+            holoCreate(1)
+            holoDisableShading(1,1)
+            holoParent(1,Parent)
+            holoPos(1,WorldPosition)
+            holoScaleUnits(1,vec(Size:x(),Size:y(),1))
+            holoAng(1,entity():toWorld(ang(0)))
+            holoColor(1,Colour)
+            holoMaterial(1,Material)
+            BaseScale = Size
+        }
+        else{
+            debug("COMPILE ERROR","Please refresh the E2","","")                   
+        }        
+    }
+        
+    function void hgui_panel(Name:string){
+        if (!GUI:exists(Name)){
+            GUI[Name,table] = table() 
+            GUI[Name,table]["indices",table] = table() #Indices of Holograms
+            GUI[Name,table]["item_types",table] = table() #H-GUI Item type of Holograms
+            GUI[Name,table]["parents",table] = table() #Parents of Holograms
+            GUI[Name,table]["models",table] = table() #Models of Holograms
+            GUI[Name,table]["positions",table] = table() #Vec2 Local Positions of Holograms            
+            GUI[Name,table]["scales",table] = table() #Vec2 Scales of Holograms            
+            GUI[Name,table]["z_indices",table] = table() #zIndicies of Holograms (e.g. 0,1,2,3...10)
+            GUI[Name,table]["angles",table] = table() #Local Angles of Holograms
+            GUI[Name,table]["colours",table] = table() #Colours of Holograms
+            GUI[Name,table]["materials",table] = table() #Materials of Holograms
+            GUI[Name,table]["dynamics",table] = table() #List of all dynamic items
+            
+            ToggleVals[Name,table] = table()
+            DynamicIDs[Name,table] = table() 
+            SliderIDs[Name,table] = table()
+            HoloIndex[Name,number] = 1            
+        }
+        else{
+            debug("COMPILE ERROR","There is already a panel with the name:",Name,"")               
+        }                 
+    }
+
+    function number hgui_object(Panel:string,Parent:entity,Model:string,Position:vector2,Scale:vector,ZIndex:number,Angle:angle,Color:vector,Material:string){
+        HoloIndex[Panel,number] = HoloIndex[Panel,number] + 1
+        
+        local Tbl = table(
+            "Func" = "hgui_object_init",
+            "Panel" = Panel,
+            "Parent" = Parent,
+            "Index" = HoloIndex[Panel,number],
+            "Model" = Model,
+            "Position" = Position,
+            "Scale" = Scale,
+            "ZIndex" = ZIndex,
+            "Angle" = Angle,
+            "Color" = Color,
+            "Material" = Material    
+        )
+        FuncCalls:pushTable(Tbl)
+        return HoloIndex[Panel,number]        
+    }
+    
+    function void hgui_object_init(Panel:string,Parent:entity,Index:number,Model:string,Position:vector2,Scale:vector,ZIndex:number,Angle:angle,Color:vector,Material:string){
+        if (Parent == noentity()){
+            Parent = holoEntity(1) #Attach to parent   
+        }
+
+        #Check for Overlaps
+        local CheckTbl = GUI[Panel,table]["indices",table]
+        local Num = CheckTbl[CheckTbl:count(),number]
+        if (Num == Index){
+            debug("COMPILE ERROR","Holo creation index:",Num:toString(),"is already in use. Please check your code.")     
+        }
+        
+        GUI[Panel,table]["indices",table]:pushNumber(Index)
+        GUI[Panel,table]["item_types",table]:pushString("object")
+        GUI[Panel,table]["parents",table]:pushEntity(Parent)
+        GUI[Panel,table]["models",table]:pushString(Model) 
+        GUI[Panel,table]["positions",table]:pushVector2(Position)
+        GUI[Panel,table]["scales",table]:pushVector(Scale) 
+        GUI[Panel,table]["z_indices",table]:pushNumber(ZIndex) 
+        GUI[Panel,table]["angles",table]:pushAngle(Angle)
+        GUI[Panel,table]["colours",table]:pushVector(Color)
+        GUI[Panel,table]["materials",table]:pushString(Material)                      
+    }
+
+    function number hgui_text(Panel:string,Parent:entity,Text:string,Position:vector2,FontSize:number,ZIndex:number,Color:vector,Material:string){       
+        local Tbl = table(
+            "Func" = "hgui_text_init",
+            "Panel" = Panel,
+            "Parent" = Parent,
+            "Index" = (HoloIndex[Panel,number]+1),
+            "Text" = Text,
+            "Position" = Position,
+            "FontSize" = FontSize,
+            "ZIndex" = ZIndex,
+            "Color" = Color,
+            "Material" = Material    
+        )
+        FuncCalls:pushTable(Tbl)  
+        HoloIndex[Panel,number] = (HoloIndex[Panel,number] + Text:length())
+        return HoloIndex[Panel,number]     
+    }
+
+    function void hgui_text_init(Panel:string,Parent:entity,Index:number,Text:string,Position:vector2,FontSize:number,ZIndex:number,Color:vector,Material:string){
+        if (Parent == noentity()){
+            Parent = holoEntity(1) #Attach to parent   
+        }        
+
+        #Check for Overlaps
+        local CheckTbl = GUI[Panel,table]["indices",table]
+        local Num = CheckTbl[CheckTbl:count(),number]
+        if (Num == Index){
+            debug("COMPILE ERROR","Holo creation index:",Num:toString(),"is already in use. Please check your code.")     
+        }
+        
+        local Chars = Text:explode("")        
+        for(I=1,Chars:count()){
+            local Char = Chars[I,string]
+            if (Char != " "){
+                if (Punctuation[Char,string] != "") {
+                    Model = "models/sprops/misc/alphanum/alphanum_"+Punctuation[Char,string]+".mdl"
+                } else {
+                    Model = "models/sprops/misc/alphanum/alphanum_"+Char+".mdl"
+                }
+                hgui_object_init(Panel,Parent,(Index+I)-1,Model,Position+vec2((I*FontSize)-FontSize,0),vec(FontSize,1,FontSize),ZIndex,ang(180,0,-90),Color,Material)
+            } 
+        }           
+    }
+
+    function number hgui_button(Panel:string,Name:string,Parent:entity,Model:string,Position:vector2,Scale:vector,ZIndex:number,Angle:angle,Color:vector,Material:string,
+    Toggle:number, PressColour:vector){
+        HoloIndex[Panel,number] = HoloIndex[Panel,number] + 1
+        
+        local Tbl = table(
+            "Func" = "hgui_button_init",
+            "Panel" = Panel,
+            "Name" = Name,
+            "Parent" = Parent,
+            "Index" = HoloIndex[Panel,number],
+            "Model" = Model,
+            "Position" = Position,
+            "Scale" = Scale,
+            "ZIndex" = ZIndex,
+            "Angle" = Angle,
+            "Color" = Color,
+            "Material" = Material,
+            "Toggle" = Toggle,
+            "PressColour" = PressColour   
+        )
+        FuncCalls:pushTable(Tbl)   
+        return HoloIndex[Panel,number]     
+    }
+    
+    function void hgui_button_init(Panel:string,Name:string,Parent:entity,Index:number,Model:string,Position:vector2,Scale:vector,ZIndex:number,Angle:angle,Color:vector,Material:string,
+    Toggle:number, PressColour:vector){
+        if (Parent == noentity()){
+            Parent = holoEntity(1) #Attach to parent   
+        }
+        
+        #Check for Overlaps
+        local CheckTbl = GUI[Panel,table]["indices",table]
+        local Num = CheckTbl[CheckTbl:count(),number]
+        if (Num == Index){
+            debug("COMPILE ERROR","Holo creation index:",Num:toString(),"is already in use. Please check your code.")     
+        }
+        
+        GUI[Panel,table]["indices",table]:pushNumber(Index)
+        GUI[Panel,table]["item_types",table]:pushString("button")
+        GUI[Panel,table]["parents",table]:pushEntity(Parent)
+        GUI[Panel,table]["models",table]:pushString(Model) 
+        GUI[Panel,table]["positions",table]:pushVector2(Position)
+        GUI[Panel,table]["scales",table]:pushVector(Scale) 
+        GUI[Panel,table]["z_indices",table]:pushNumber(ZIndex) 
+        GUI[Panel,table]["angles",table]:pushAngle(Angle)
+        GUI[Panel,table]["colours",table]:pushVector(Color)
+        GUI[Panel,table]["materials",table]:pushString(Material) 
+        
+        local Tbl = table()
+        Tbl["tableID",number] = GUI[Panel,table]["indices",table]:count()
+        Tbl["type",string] = "button"
+        Tbl["index",number] = Index
+        Tbl["toggle",number] = Toggle
+        Tbl["colour",vector] = PressColour
+        Tbl["name",string] = Name
+        GUI[Panel,table]["dynamics",table]:pushTable(Tbl)
+        
+        DynamicIDs[Panel,table][Tbl["tableID",number],number] = GUI[Panel,table]["dynamics",table]:count()                 
+    }
+
+    function number hgui_panelLoader(Panel:string,PanelToLoad:string,Parent:entity,Model:string,Position:vector2,Scale:vector,ZIndex:number,Angle:angle,Color:vector,
+    Material:string, PressColour:vector){
+        HoloIndex[Panel,number] = HoloIndex[Panel,number] + 1
+        
+        local Tbl = table(
+             "Func" = "hgui_panelLoader_init",
+             "Panel" = Panel,
+             "PanelToLoad" = PanelToLoad,
+             "Parent" = Parent,
+             "Index" = HoloIndex[Panel,number],
+             "Model" = Model,
+             "Position" = Position,
+             "Scale" = Scale,
+             "ZIndex" = ZIndex,
+             "Angle" = Angle,
+             "Color" = Color,
+             "Material" = Material,
+             "PressColour" = PressColour   
+        )
+        FuncCalls:pushTable(Tbl)    
+        return HoloIndex[Panel,number]    
+    }
+    
+    function void hgui_panelLoader_init(Panel:string,PanelToLoad:string,Parent:entity,Index:number,Model:string,Position:vector2,Scale:vector,ZIndex:number,Angle:angle,Color:vector,
+    Material:string, PressColour:vector){
+        if (Parent == noentity()){
+            Parent = holoEntity(1) #Attach to parent   
+        }
+        
+        #Check for Overlaps
+        local CheckTbl = GUI[Panel,table]["indices",table]
+        local Num = CheckTbl[CheckTbl:count(),number]
+        if (Num == Index){
+            debug("COMPILE ERROR","Holo creation index:",Num:toString(),"is already in use. Please check your code.")     
+        }
+        
+        GUI[Panel,table]["indices",table]:pushNumber(Index)
+        GUI[Panel,table]["item_types",table]:pushString("panelLoader")
+        GUI[Panel,table]["parents",table]:pushEntity(Parent)
+        GUI[Panel,table]["models",table]:pushString(Model) 
+        GUI[Panel,table]["positions",table]:pushVector2(Position)
+        GUI[Panel,table]["scales",table]:pushVector(Scale) 
+        GUI[Panel,table]["z_indices",table]:pushNumber(ZIndex) 
+        GUI[Panel,table]["angles",table]:pushAngle(Angle)
+        GUI[Panel,table]["colours",table]:pushVector(Color)
+        GUI[Panel,table]["materials",table]:pushString(Material)
+        
+        local Tbl = table()
+        Tbl["tableID",number] = GUI[Panel,table]["indices",table]:count()
+        Tbl["type",string] = "panelLoader"
+        Tbl["index",number] = Index
+        Tbl["panel",string] = PanelToLoad
+        Tbl["colour",vector] = PressColour
+        GUI[Panel,table]["dynamics",table]:pushTable(Tbl) 
+        
+        DynamicIDs[Panel,table][Tbl["tableID",number],number] = GUI[Panel,table]["dynamics",table]:count()                           
+    }
+
+    function number hgui_slider(Panel:string,Name:string,Parent:entity,Position:vector2,Scale:vector,ZIndex:number,Vertical:number,Color:vector,
+    SliderColor:vector,Material:string,PressColour:vector,MinValue:number,MaxValue:number){        
+        local Tbl = table(
+            "Func" = "hgui_slider_init", 
+            "Panel" = Panel,
+            "Name" = Name,
+            "Parent" = Parent,
+            "Index" = (HoloIndex[Panel,number]+1),
+            "Position" = Position,
+            "Scale" = Scale,
+            "ZIndex" = ZIndex,
+            "Vertical" = Vertical,
+            "Color" = Color,
+            "SliderColor" = SliderColor,
+            "Material" = Material,
+            "PressColour" = PressColour,
+            "MinValue" = MinValue,
+            "MaxValue" = MaxValue 
+        )
+        FuncCalls:pushTable(Tbl)
+        HoloIndex[Panel,number] = HoloIndex[Panel,number] + 2
+        return HoloIndex[Panel,number]        
+    }
+    
+    function void hgui_slider_init(Panel:string,Name:string,Parent:entity,Index:number,Position:vector2,Scale:vector,ZIndex:number,Angle:angle,Color:vector,
+    SliderColor:vector,Material:string,PressColour:vector,MinValue:number,MaxValue:number){
+        if (Parent == noentity()){
+            Parent = holoEntity(1) #Attach to parent   
+        }
+        
+        #Check for Overlaps
+        local CheckTbl = GUI[Panel,table]["indices",table]
+        local Num = CheckTbl[CheckTbl:count(),number]
+        if (Num == Index){
+            debug("COMPILE ERROR","Holo creation index:",Num:toString(),"is already in use. Please check your code.")     
+        }
+                        
+        hgui_object_init(Panel,Parent,Index,Model,Position,vec(1.5,Scale:y(),1),ZIndex+1,ang(0),SliderColor,Material)
+        hgui_object_init(Panel,Parent,Index+1,Model,Position,Scale,ZIndex,ang(0),Color,Material)
+        
+        local Tbl = table()
+        local TblID = GUI[Panel,table]["indices",table]:count()-1
+        Tbl["tableID",number] = TblID
+        Tbl["type",string] = "slider"
+        Tbl["index",number] = Index
+        Tbl["sliderColor",vector] = SliderColor
+        Tbl["colour",vector] = PressColour
+        Tbl["startValue",number] = (-Scale:x()/2)+0.75
+        Tbl["value",number] = Tbl["startValue",number]
+        Tbl["clamp",vector2] = vec2(Tbl["value",number],(Scale:x()/2)-0.75)
+        Tbl["name",string] = Name
+        Tbl["minValue",number] = MinValue
+        Tbl["maxValue",number] = MaxValue
+        GUI[Panel,table]["dynamics",table]:pushTable(Tbl) 
+         
+        DynamicIDs[Panel,table][TblID,number] = GUI[Panel,table]["dynamics",table]:count() 
+        #print("TableID: "+TblID+" HoloID:"+Index+" DynamicID:"+GUI[Panel,table]["dynamics",table]:count())                         
+    }       
+    
+    function void hgui_wipePanel(){
+        if (!Spawning && !Deleting){ 
+            stoptimer("spawnHolo")
+            DelIndex = 0
+            Deleting = 1
+            timer("deleteHolo",10)  
+        } 
+        else{
+            debug("WARNING","Please wait before trying to deleting another panel...","","")     
+        }   
+    }
+    
+    function void hgui_renderPanel(Panel:string){
+        StartingPanel = Panel        
+    }
+    
+    function void hgui_renderPanel_init(Panel:string){
+        if (!Spawning && !Deleting){
+            if (CurPanel == ""){
+                stoptimer("deleteHolo")
+                CurPanel = Panel     
+                local Tbl = GUI[Panel,table]                                
+                ItemCount = Tbl["indices",table]:count()
+                Indices = table()
+                Models = table()
+                Parents = table()
+                Scales = table()
+                Positions = table()
+                Angles = table()
+                Colors = table()
+                Materials = table()
+                PressedIDs = table()
+                PressedTableIDs = table()           
+                
+                GenIndex = 0
+                Spawning = 1
+                timer("indexHolo",10)               
+            }
+            else{
+                NextPanel = Panel
+                hgui_wipePanel()      
+            }
+        }
+        else{
+            debug("WARNING","Please wait before trying to rendering another panel...","","")     
+        } 
+    }
+
+    function void checkDynamics(){
+        local DynamicTbl = GUI[CurPanel,table]["dynamics",table]     
+            
+        for(I=1,DynamicTbl:count()){    
+            local Type = DynamicTbl[I,table]["type",string]
+            if (Type == "slider"){                         
+                local ID = DynamicTbl[I,table]["index",number] 
+                local StartVal = DynamicTbl[I,table]["startValue",number]
+                local Val = DynamicTbl[I,table]["value",number]
+                local XPos = StartVal + (Val-StartVal) 
+                holoPos(ID,holoEntity(ID+1):toWorld(vec(XPos,0,0.2)))
+            }                                                   
+        }             
+    }
+
+    function void clkHoloIndex(){        
+        GenIndex++
+        local Tbl = GUI[CurPanel,table]   
+        local Col = Tbl["colours",table][GenIndex,vector]
+        local Pos = Tbl["positions",table][GenIndex,vector2] 
+        local Scale = Tbl["scales",table][GenIndex,vector] 
+        local DynID = DynamicIDs[CurPanel,table][GenIndex,number]
+
+        if (DynID > 0){
+            local DynamicTbl = GUI[CurPanel,table]["dynamics",table][DynID,table]
+            local Type = DynamicTbl["type",string]
+                                               
+            if (Type=="button"){  
+                local ID = DynamicTbl["index",number]                         
+                if(DynamicTbl["toggle",number] == 1){
+                    if(ToggleVals[CurPanel,table][ID,number] == 1){
+                        Col = DynamicTbl["colour",vector]        
+                    }    
+                }    
+            }                     
+        }
+        
+        indexHolo(
+        Tbl["indices",table][GenIndex,number],
+        Tbl["models",table][GenIndex,string],            
+        Tbl["parents",table][GenIndex,entity],            
+        vec(Pos:x()+(Scale:x()/2),Pos:y()-(Scale:y()/2),Tbl["z_indices",table][GenIndex,number]),
+        Tbl["scales",table][GenIndex,vector],
+        Tbl["angles",table][GenIndex,angle],
+        Col,
+        Tbl["materials",table][GenIndex,string]
+        )
+             
+        if (GenIndex<ItemCount){            
+            timer("indexHolo",10) 
+        }
+        else{
+            Index = 0            
+            timer("spawnHolo",10)                
+        }
+    }
+        
+    function void clkAlpha(){
+        AlphaIndex++        
+        holoAlpha(Indices[AlphaIndex,number],255)
+
+        if (AlphaIndex<ItemCount) {
+            timer("alphaHolo",10) 
+        }
+        else{
+            Spawning = 0 
+        }           
+    }
+    
+    function void clkHoloCreate(){
+        if (holoCanCreate() && Index<Indices:count()){
+            Index++
+            if (HolosSaved[Indices[Index,number],number] == 0){
+                holoCreate(Indices[Index,number])
+                holoCreate(Indices[Index,number])
+                holoCreate(Indices[Index,number]) #ON PURPOSE DON'T CHANGE
+                HolosSaved[Indices[Index,number],number] = 1
+            }            
+            holoDisableShading(Indices[Index,number],1)
+            holoModel(Indices[Index,number],Models[Index,string])
+            holoParent(Indices[Index,number],Parents[Index,entity])
+            holoScaleUnits(Indices[Index,number],Scales[Index,vector])
+            local Pos = get_LBasePos(Positions[Index,vector]:x(),Positions[Index,vector]:y(),Positions[Index,vector]:z())
+            holoPos(Indices[Index,number],Pos)
+            holoAng(Indices[Index,number],Parents[Index,entity]:toWorld(Angles[Index,angle]))
+            holoColor(Indices[Index,number],Colors[Index,vector])
+            holoMaterial(Indices[Index,number],Materials[Index,string])
+            holoAlpha(Indices[Index,number],0)
+        }
+        
+        if (Index<Indices:count()){
+            timer("spawnHolo",10) 
+        }
+        else{            
+            AlphaIndex = 0
+            checkDynamics()
+            timer("alphaHolo",200)                 
+        }
+    }
+    
+    function void clkHoloDelete(){
+        local Tbl = GUI[CurPanel,table]["indices",table]
+        DelIndex++
+
+        holoAlpha(Tbl[DelIndex,number],0)        
+        holoPos(Tbl[DelIndex,number],entity():pos())                
+        #holoDelete(Tbl[DelIndex,number])
+        
+        if (DelIndex<ItemCount){
+            timer("deleteHolo",10)   
+        }
+        else{
+            Deleting = 0 
+            CurPanel = ""
+            if (NextPanel != ""){
+                hgui_renderPanel_init(NextPanel)
+                NextPanel = ""     
+            }   
+        }                
+    }
+    
+    function number number:getSliderValue(){
+        local ID = DynamicIDs[CurPanel,table][This-2,number]  
+        if (ID > 0){             
+            local Tbl = GUI[CurPanel,table]["dynamics",table][ID,table]            
+            local MinValA = Tbl["startValue",number]
+            local MaxValA = abs(MinValA)
+            local Val = Tbl["value",number]
+            local MinValB = Tbl["minValue",number]
+            local MaxValB = abs(Tbl["maxValue",number])
+            local Mix = ((Val+MaxValA)/(MaxValA*2))*(MaxValB+MinValB)
+            return (Mix)
+        }
+        return 0     
+    }
+    
+    function void procItem(){
+        ProcIndex++
+        local Tbl = FuncCalls[ProcIndex,table]
+        local Func = Tbl["Func",string]
+                
+        switch(Func){            
+            case ("hgui_object_init"),
+                hgui_object_init(Tbl["Panel",string],Tbl["Parent",entity],Tbl["Index",number],Tbl["Model",string],Tbl["Position",vector2],Tbl["Scale",vector],
+                Tbl["ZIndex",number],Tbl["Angle",angle],Tbl["Color",vector],Tbl["Material",string])
+            break
+            
+            case ("hgui_text_init"),
+                hgui_text_init(Tbl["Panel",string],Tbl["Parent",entity],Tbl["Index",number],Tbl["Text",string],Tbl["Position",vector2],Tbl["FontSize",number],
+                Tbl["ZIndex",number],Tbl["Color",vector],Tbl["Material",string])                                 
+            break
+            
+            case ("hgui_button_init"),
+                hgui_button_init(Tbl["Panel",string],Tbl["Name",string],Tbl["Parent",entity],Tbl["Index",number],Tbl["Model",string],Tbl["Position",vector2],Tbl["Scale",vector],
+                Tbl["ZIndex",number],Tbl["Angle",angle],Tbl["Color",vector],Tbl["Material",string],Tbl["Toggle",number],Tbl["PressColour",vector])                                 
+            break                         
+             
+            case ("hgui_panelLoader_init"),
+                hgui_panelLoader_init(Tbl["Panel",string],Tbl["PanelToLoad",string],Tbl["Parent",entity],Tbl["Index",number],Tbl["Model",string],Tbl["Position",vector2],
+                Tbl["Scale",vector],Tbl["ZIndex",number],Tbl["Angle",angle],Tbl["Color",vector],Tbl["Material",string],Tbl["PressColour",vector])             
+            break 
+            
+            case ("hgui_slider_init"),
+                hgui_slider_init(Tbl["Panel",string],Tbl["Name",string],Tbl["Parent",entity],Tbl["Index",number],Tbl["Position",vector2],
+                Tbl["Scale",vector],Tbl["ZIndex",number],Tbl["Angle",angle],Tbl["Color",vector],Tbl["SliderColor",vector],Tbl["Material",string],Tbl["PressColour",vector],
+                Tbl["MinValue",number],Tbl["MaxValue",number])             
+            break                     
+        }
+        
+        if (ProcIndex<ProcCount){
+            timer("processItem",10)    
+        }
+        else{
+            stoptimer("processItem")
+            if (StartingPanel != ""){
+                debug("LOADING","Rendering Initial Panel",StartingPanel,". Please don't move the panel...")
+                hgui_renderPanel_init(StartingPanel)  
+            } 
+        }                  
+    }
+    
+    function void processItems(){        
+        ProcCount = FuncCalls:count()
+        debug("LOADING","Processing",ProcCount:toString(),"items...")        
+        ProcIndex = 0
+        timer("processItem",10)    
+    }
+    
+    #ifdef rayOBBoxIntersection(vector,vector,vector,vector,angle)    
+    function vector holoIntersect(Index:number){
+        local TargetBox = holoEntity(Index)
+        if (TargetBox:isValid()){
+            local Mult = holoScale(holoIndex(TargetBox))       
+            local BoxSize = TargetBox:boxSize()*Mult
+            local Hit = rayOBBoxIntersection(ShootPos,Eye,TargetBox:pos(),BoxSize,TargetBox:angles())
+            return Hit    
+        }
+        else{
+            return vec(0) 
+        }      
+    }
+    #else
+        debug("COMPILE ERROR","Function:","rayOBBoxIntersection","is not enabled on your server")
+        exit()           
+    #endif  
+    
+    function void number:hgui_setColor(Color:vector){
+        local ID = This-1
+        GUI[CurPanel,table]["colours",table][ID,vector] = Color
+        holoColor(This,Color)        
+    }
+             
+    dsSetScope(0)
+    dsJoinGroup("hgui-net")
+                    
+    #-#-#-#-#-#-#-#
+}
+
+#PROCEDURAL CODE
+if (clk("processItem")){
+    procItem()
+}
+
+elseif (clk("indexHolo")){
+    local Left = ItemCount-GenIndex
+    Left = clamp(Left,0,15)
+    for(I=1,Left){
+        clkHoloIndex()
+    }    
+}
+
+elseif (clk("spawnHolo")){    
+        local Left = ItemCount-Index
+        Left = clamp(Left,0,15)
+        for(I=1,Left){
+            clkHoloCreate()
+        }    
+}
+
+elseif (clk("alphaHolo")){    
+        local Left = ItemCount-AlphaIndex
+        Left = clamp(Left,0,20)
+        for(I=1,Left){
+            clkAlpha()
+        }    
+}
+
+elseif (clk("deleteHolo")){
+    local Left = ItemCount-DelIndex
+    Left = clamp(Left,0,15)
+    if (Left > 0){
+        for(I=1,Left){
+            clkHoloDelete()
+        }
+    }
+}
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+#MAIN CODE
+if (clk("main")){
+    if (ActiveSlider > 0){
+        local DynamicTbl = GUI[CurPanel,table]["dynamics",table]
+        local ID = DynamicTbl[ActiveSlider,table]["index",number]
+        local TableID = DynamicTbl[ActiveSlider,table]["tableID",number]
+        
+        local RayPos = rayPlaneIntersection(owner():shootPos(),owner():eye(),holoEntity(ID+1):pos(),holoEntity(ID+1):up())
+        local Scale = GUI[CurPanel,table]["scales",table][TableID+1,vector]
+        local ScaleSlider = GUI[CurPanel,table]["scales",table][TableID,vector]    
+        local LocaltoSlider = holoEntity(ID+1):toLocal(RayPos)
+        local Clamp = clamp(LocaltoSlider:x(),(-Scale:x()/2)+(ScaleSlider:x()/2),(Scale:x()/2)-(ScaleSlider:x()/2))
+        GUI[CurPanel,table]["dynamics",table][ActiveSlider,table]["value",number] = Clamp
+        local TruePos = vec(Clamp,0,0.2)
+        local Pos = holoEntity(ID+1):toWorld(TruePos)
+        holoPos(ID,Pos) 
+        
+        local SliderName = DynamicTbl[ActiveSlider,table]["name",string]            
+        timer("main",20)    
+    }
+
+}
+#GUI FOLLOW
+if (clk("moveBase")){
+    local Angs = (owner():pos()-holoEntity(1):pos()):toAngle()
+    holoAng(1,ang(0,Angs:yaw()+90,Angs:roll()+90))
+    timer("moveBase",60)        
+}
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
+#DYNAMIC ITEM CODE
+if (keyClk(owner())){
+    if (keyClkPressed() == UseButton){
+        if (owner():keyPressed(UseButton)){
+            if (!Spawning && !Deleting){ 
+                local DynamicTbl = GUI[CurPanel,table]["dynamics",table]       
+                ShootPos = owner():shootPos()
+                Eye = owner():eye()
+                          
+                for(I=1,DynamicTbl:count()){    
+                    local Type = DynamicTbl[I,table]["type",string] 
+                    local ID = DynamicTbl[I,table]["index",number] 
+                    local TableID = DynamicTbl[I,table]["tableID",number]                     
+                    if (holoIntersect(ID) != vec(0)){                
+                        local ButtonName = DynamicTbl[I,table]["name",string]                                       
+                        if (DynamicTbl[I,table]["toggle",number]){ 
+                            ToggleVals[CurPanel,table][ID,number] = ToggleVals[CurPanel,table][ID,number] + 1                   
+                            if (ToggleVals[CurPanel,table][ID,number] > 1){
+                                ToggleVals[CurPanel,table][ID,number] = 0
+                                holoColor(ID,GUI[CurPanel,table]["colours",table][TableID,vector])                        
+                            }
+                            else{
+                                holoColor(ID,DynamicTbl[I,table]["colour",vector])                                                                                
+                            }
+                            dsSend(ButtonName,"hgui-net",ToggleVals[CurPanel,table][ID,number])
+                        }
+                        else{                                                                  
+                            if (Type=="slider"){
+                                ActiveSlider = I
+                                timer("main",20) 
+                                #PressedIDs:pushNumber(ID)
+                                #PressedColors:pushVector(DynamicTbl[I,table]["sliderColor",vector])                               
+                            }
+                            else{
+                                #PressedIDs:pushNumber(ID)                       
+                                #PressedColors:pushVector(GUI[CurPanel,table]["colours",table][TableID,vector])
+                            }
+                                                    
+                            holoColor(ID,DynamicTbl[I,table]["colour",vector])
+                            
+                            if (Type == "button"){
+                                dsSend(ButtonName,"hgui-net",1)   
+                            }
+                            elseif (Type == "panelLoader"){
+                                hgui_renderPanel_init(DynamicTbl[I,table]["panel",string])           
+                            }                    
+                        }              
+                    }
+                }                                
+            }    
+        }
+        else{
+            local DynamicTbl = GUI[CurPanel,table]["dynamics",table]     
+                
+            for(I=1,DynamicTbl:count()){             
+                local Toggle = DynamicTbl[I,table]["toggle",number]             
+                if (!Toggle){
+                    local TableID = DynamicTbl[I,table]["tableID",number] 
+                    local Type = DynamicTbl[I,table]["type",string]
+                    local ID = DynamicTbl[I,table]["index",number]                      
+                    local Col = vec(0)
+                    if (Type == "slider"){
+                        if (ActiveSlider > 0){
+                            ActiveSlider = 0
+                            ActiveSliderTbl = 0
+                            local SliderName = DynamicTbl[I,table]["name",string]
+                            dsSend(SliderName,"hgui-net",ID:getSliderValue())                                                                         
+                        } 
+                        Col = DynamicTbl[I,table]["sliderColor",vector]      
+                    }
+                    else{
+                        Col = GUI[CurPanel,table]["colours",table][TableID,vector]    
+                    }
+                    
+                    holoColor(ID,Col)
+                    #PressedIDs:removeNumber(I)
+                    #PressedColors:removeNumber(I)  
+                }                                        
+            }          
+        }
+    }    
+}
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
